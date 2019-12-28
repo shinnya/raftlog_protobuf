@@ -1,13 +1,15 @@
 //! Encoders and decoders for the constituents defined in `raftlog::log` module.
 use bytecodec::combinator::PreEncode;
 use protobuf_codec::field::branch::Branch2;
-use protobuf_codec::field::num::{F1, F2, F3, F4, F5};
+use protobuf_codec::field::num::{F1, F2, F3, F4, F5, F6};
 use protobuf_codec::field::{
     FieldDecoder, FieldEncoder, Fields, MaybeDefault, MessageFieldDecoder, MessageFieldEncoder,
     Oneof, Optional,
 };
 use protobuf_codec::message::{MessageDecoder, MessageEncoder};
-use protobuf_codec::scalar::{BytesDecoder, BytesEncoder, Uint64Decoder, Uint64Encoder};
+use protobuf_codec::scalar::{
+    BytesDecoder, BytesEncoder, StringDecoder, StringEncoder, Uint64Decoder, Uint64Encoder,
+};
 use raftlog::log::{LogEntry, LogPosition, LogPrefix};
 
 use state::{ClusterConfigDecoder, ClusterConfigEncoder};
@@ -65,14 +67,18 @@ pub struct LogPrefixDecoder {
             MessageFieldDecoder<F3, ClusterConfigDecoder>,
             MaybeDefault<FieldDecoder<F4, BytesDecoder>>,
             MessageFieldDecoder<F5, LogPositionDecoder>,
+            FieldDecoder<F6, StringDecoder>,
         )>,
     >,
 }
-impl_message_decode!(LogPrefixDecoder, LogPrefix, |t: (_, _, _)| Ok(LogPrefix {
-    config: t.0,
-    snapshot: t.1,
-    tail: t.2,
-}));
+impl_message_decode!(LogPrefixDecoder, LogPrefix, |t: (_, _, _, String)| Ok(
+    LogPrefix {
+        config: t.0,
+        snapshot: t.1,
+        tail: t.2,
+        voted_for: t.3.into(),
+    }
+));
 
 /// Encoder for `LogPrefix`.
 #[derive(Debug, Default)]
@@ -82,13 +88,15 @@ pub struct LogPrefixEncoder {
             MessageFieldEncoder<F5, LogPositionEncoder>,
             MessageFieldEncoder<F3, PreEncode<ClusterConfigEncoder>>,
             FieldEncoder<F4, BytesEncoder>,
+            FieldEncoder<F6, StringEncoder>,
         )>,
     >,
 }
 impl_sized_message_encode!(LogPrefixEncoder, LogPrefix, |item: Self::Item| (
     item.tail,
     item.config,
-    item.snapshot
+    item.snapshot,
+    item.voted_for.into_string(),
 ));
 
 /// Decoder for `LogPosition`.
