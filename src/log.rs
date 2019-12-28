@@ -67,16 +67,16 @@ pub struct LogPrefixDecoder {
             MessageFieldDecoder<F3, ClusterConfigDecoder>,
             MaybeDefault<FieldDecoder<F4, BytesDecoder>>,
             MessageFieldDecoder<F5, LogPositionDecoder>,
-            FieldDecoder<F6, StringDecoder>,
+            Optional<FieldDecoder<F6, StringDecoder>>,
         )>,
     >,
 }
-impl_message_decode!(LogPrefixDecoder, LogPrefix, |t: (_, _, _, String)| Ok(
+impl_message_decode!(LogPrefixDecoder, LogPrefix, |t: (_, _, _, Option<String>)| Ok(
     LogPrefix {
         config: t.0,
         snapshot: t.1,
         tail: t.2,
-        voted_for: t.3.into(),
+        voted_for: t.3.map(|node_id| node_id.into()),
     }
 ));
 
@@ -88,7 +88,7 @@ pub struct LogPrefixEncoder {
             MessageFieldEncoder<F5, LogPositionEncoder>,
             MessageFieldEncoder<F3, PreEncode<ClusterConfigEncoder>>,
             FieldEncoder<F4, BytesEncoder>,
-            FieldEncoder<F6, StringEncoder>,
+            Optional<FieldEncoder<F6, StringEncoder>>,
         )>,
     >,
 }
@@ -96,7 +96,7 @@ impl_sized_message_encode!(LogPrefixEncoder, LogPrefix, |item: Self::Item| (
     item.tail,
     item.config,
     item.snapshot,
-    item.voted_for.into_string(),
+    item.voted_for.map(|node_id| node_id.into_string()),
 ));
 
 /// Decoder for `LogPosition`.
